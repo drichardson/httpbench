@@ -30,7 +30,14 @@ provision() {
 
     # Get some standard stuff I need
     apt-get --yes update
-    apt-get --yes install vim emacs gcc g++ git subversion sbcl sudo curl make apache2-utils
+    apt-get --yes install vim emacs gcc g++ git subversion sbcl sudo curl make apache2-utils \
+        strace linux-tools sysstat
+
+    # would also be nice to install these but wheezy doesn't have them
+    # apt-get --yes install blkstat nicstat
+
+    # if you want to install ktap, need few more things
+    apt-get --yes install linux-headers-3.2.0-4-amd64
 
     local NONROOT_USER=doug
     create_user $NONROOT_USER
