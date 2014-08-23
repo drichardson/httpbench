@@ -30,7 +30,7 @@ provision() {
 
     # Get some standard stuff I need
     apt-get --yes update
-    apt-get --yes install vim emacs gcc g++ git subversion sbcl sudo curl make apache2-utils \
+    apt-get --yes install vim-nox emacs gcc g++ git subversion sbcl sudo curl make apache2-utils \
         strace linux-tools sysstat
 
     # would also be nice to install these but wheezy doesn't have them
