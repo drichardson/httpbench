@@ -9,15 +9,34 @@
 #include "list.h"
 #include "log.h"
 
+enum WorkerMode {
+    WorkerMode_SingleThread,
+    WorkerMode_MultiThreaded
+};
+
+//enum WorkerMode g_worker_mode = WorkerMode_SingleThread;
+enum WorkerMode g_worker_mode = WorkerMode_MultiThreaded;
+unsigned int g_worker_count = 100;
+unsigned int g_accept_backlog = 400;
+
 static int open_listener_socket_on_port(in_port_t);
 static void handle_requests(int listen_socket);
+static void handle_requests_multi(int listen_socket, int workers);
 //static void handle_request(int client_socket);
 
 int main(int argc, char** argv)
 {
     int listener = open_listener_socket_on_port(8080);
     if (listener == -1) exit(1);
-    handle_requests(listener);
+
+    switch(g_worker_mode) {
+    case WorkerMode_SingleThread:
+        handle_requests(listener);
+        break;
+    case WorkerMode_MultiThreaded:
+        handle_requests_multi(listener, g_worker_count);
+        break;
+    }
     close(listener);
     return 0;
 }
@@ -63,6 +82,9 @@ static void handle_requests(int listen_socket)
     buf_write(&bd, "HTTP/1.1 200 OK\r\n\r\n", 19);
     while(buf_write(&bd, "abcdefghijklmnopqrstuvwxyz", 26) > 0);
 
+    int last_read = -1;
+    int last_write = -1;
+
     while(1) {
         int client = accept4(listen_socket, NULL, NULL, SOCK_CLOEXEC);
         if (client == -1) {
@@ -71,21 +93,76 @@ static void handle_requests(int listen_socket)
             return;
         }
 
-        // TODO: Non blocking, timeout, singal interruptions, etc.
-        int rc = recv(client, request_buf, sizeof(request_buf), 0);
-        if (rc == -1) {
-            log_errno("recv failed");
-            goto loop_end;
+
+        int to_read = 81; // TODO: Fix just for testing.
+        while(to_read > 0) {
+            // TODO: Non blocking, timeout, singal interruptions, etc.
+            int rc = recv(client, request_buf, sizeof(request_buf), 0);
+            if (rc == -1) {
+                if (errno == EINTR) continue;
+
+                log_errno("recv failed");
+                goto loop_end;
+            }
+
+            if (rc == 0) {
+                // peer shutdown.
+                goto loop_end;
+            }
+
+            if (last_read == -1) {
+                last_read = rc;
+            } else {
+                if (last_read != rc) {
+                    log_format("Last time I read %d bytes, but this time I read %d", last_read, rc);
+                }
+            }
+
+            to_read -= rc;
         }
 
-        rc = send(client, response_buf, sizeof(response_buf), 0);
+        // TODO: Make sure you send everything.
+        int rc = send(client, response_buf, sizeof(response_buf), 0);
         if (rc != sizeof(response_buf)) {
             log_format("Didn't send entire response. rc = %d", rc);
+        }
+
+        if (last_write == -1) {
+            last_write = rc;
+        } else if (last_write != rc) {
+            log_format("Last write %d not equal to this write %d", last_write, rc);
         }
 
 loop_end:
         close(client);
     }
+}
+
+static void* handle_request_worker_thread(void* arg)
+{
+    int listen_socket = *(int*)arg;
+    handle_requests(listen_socket);
+    return NULL;
+}
+
+static void handle_requests_multi(int listen_socket, int worker_count)
+{
+    pthread_t *worker_threads = calloc(worker_count, sizeof(worker_threads));
+    int rc;
+    
+    for(int i = 0; i < worker_count; ++i) {
+        rc = pthread_create(worker_threads+i, NULL, handle_request_worker_thread, &listen_socket);
+        if (rc != 0) {
+            log_with_errno(rc, "pthread_create failed on %d", i);
+            exit(1);
+        }
+    }
+
+    for(int i = 0; i < worker_count; ++i) {
+        rc = pthread_join(worker_threads[i], NULL);
+    }
+
+    free(worker_threads);
 }
 
 
@@ -127,8 +204,7 @@ static int open_listener_socket_on_port(in_port_t port)
         return -1;
     }
 
-    int const backlog = 5;
-    rc = listen(fd, backlog);
+    rc = listen(fd, g_accept_backlog);
     if (rc == -1) {
         log_errno("listen failed");
         close(fd);

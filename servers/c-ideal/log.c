@@ -11,6 +11,7 @@ void log_string_fast(char const* str, size_t len) {
 
 void log_string(char const* str) {
     fputs(str, stderr);
+    fputc('\n', stderr);
 }
 
 static void log_format_v(char const* fmt, va_list va) {
