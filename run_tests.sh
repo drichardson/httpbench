@@ -10,8 +10,8 @@ fi
 HOST=$1
 BASE=http://${HOST}
 
-ab -n 10000 -c 1 $BASE/1k
-ab -n 1000 -c 10 $BASE/1k
-ab -n 100 -c 100 $BASE/1k
-ab -n 10 -c 1000 $BASE/1k
-ab -n 1 -c 10000 $BASE/1k
+for concurrent in 1 10 100 1000 10000; do
+    echo TEST ab -n 10000 -c $concurrent $BASE/1k
+    ab -n 10000 -c $concurrent $BASE/1k
+done
+
