@@ -34,7 +34,7 @@ provision() {
 
     local DIST_ID=$(lsb_release -i | awk -F ' ' '{print $3}') 
     local PACKAGES="vim-nox emacs gcc g++ git subversion sbcl sudo curl make apache2-utils \
-strace sysstat gdb tcpdump libclang-dev cscope"
+strace sysstat gdb tcpdump libclang-dev cscope cl-quicklisp"
 
     
     case "$DIST_ID" in
