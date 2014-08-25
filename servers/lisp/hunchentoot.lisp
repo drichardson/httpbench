@@ -1,10 +1,7 @@
 ; hunchentoot example
 
 ; use quicklisp to load
-; (ql:quickload "hunchentoot")
-
-;(defpackage :hunchentoot-test
-;    (:use :hunchentoot))
+(ql:quickload "hunchentoot")
 
 (defun gen-string (n)
   (coerce
@@ -24,3 +21,6 @@
 (defun hunchentoot-stop ()
   (hunchentoot:stop *acceptor*)
   (setf *acceptor* nil))
+
+(defun main ()
+  (format t "NOT IMPELEMTNED"))

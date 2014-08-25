@@ -2,14 +2,7 @@
 ; https://github.com/orthecreedence/wookie
 
 ; use quicklisp to load wookie package by entering this in the REPL
-; (ql:quickload "wookie")
-
-(defpackage :wookie-test
-     (:use :cl :wookie))
-(in-package :wookie-test)
-
-;; load Wookie's core plugins
-(load-plugins)
+(ql:quickload "wookie")
 
 (defun gen-string (n)
   (coerce
@@ -17,12 +10,11 @@
       append (list (code-char (+ (char-code #\a) (mod i 26)))))
    'string))
 
-(defparameter *1k-response* (gen-string 1024))
-
-;; define our homepage route
-(defroute (:get "/1k") (req res)
-    (send-response res :body *1k-response*))
-
-;; start serving requests!
-(as:with-event-loop ()
-    (start-server (make-instance 'listener :port 8080)))
+(defun main ()
+  (wookie:load-plugins)
+  (let ((1k-response (gen-string 1024)))
+    (wookie:defroute (:get "/1k") (req res)
+      (wookie:send-response res :body 1k-response))  
+    (as:with-event-loop ()
+      (wookie:start-server (make-instance 'wookie:listener :port 8080)))))
+  

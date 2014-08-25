@@ -25,7 +25,7 @@
    "HTTP/1.1 200 OK" CRLF
    (format nil "Content-Length: ~a" *response-content-length*) CRLF
    CRLF
-   (gen-string *response-length*)))
+   (gen-string *response-content-length*)))
 (defparameter *response-length* (length *response*))
 
 (defun accept-one (l)
