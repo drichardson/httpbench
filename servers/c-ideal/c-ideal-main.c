@@ -71,8 +71,8 @@ static int buf_write(buf_descriptor *bd, char* data, int data_len) {
 
 static void handle_requests(int listen_socket)
 {
-    char request_buf[4096];
-    char response_buf[4096];
+    char request_buf[1024];
+    char response_buf[1024];
 
     buf_descriptor bd;
     bd.buf = response_buf;
