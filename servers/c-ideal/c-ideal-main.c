@@ -1,8 +1,10 @@
 #include <errno.h>
 #include <netinet/ip.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <pthread.h>
+#include "likely.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -41,49 +43,37 @@ int main(int argc, char** argv)
     return 0;
 }
 
-typedef struct slice {
-    char *buf;
-    size_t begin;
-    size_t end;
-} slice;
-
-typedef struct buf_descriptor
+static bool sendloop(int fd, void const* data, int length, int flags)
 {
-    char *buf;
-    int len;
-    int cur;
-} buf_descriptor;
-
-
-// TODO:DOUG No No No! No copying. Use vectored I/O to write so that you don't have to copy
-// into a single contiguous buffer.
-
-#define MIN(a, b) ( (a < b) ? (a) : (b) )
-
-// Returns bytes written.
-static int buf_write(buf_descriptor *bd, char* data, int data_len) {
-    int left = bd->len - bd->cur;
-    int to_copy = MIN(left, data_len);
-    memcpy(bd->buf+bd->cur, data, to_copy);
-    bd->cur += to_copy;
-    return to_copy;
+    char const* bytes = (char const*)data;
+    int sent = 0;
+    while(sent < length) {
+        ssize_t rc = send(fd, bytes+sent, length-sent, flags);
+        if (unlikely(rc == -1)) {
+            if (errno == EINTR) continue;
+            log_errno("error sending");
+            return false;
+        }
+        sent += rc;
+    }
+    return true;
 }
 
 static void handle_requests(int listen_socket)
 {
-    char request_buf[1024];
-    char response_buf[1024];
+    char const* response_header =
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Length: 1024\r\n"
+      "\r\n";
 
-    buf_descriptor bd;
-    bd.buf = response_buf;
-    bd.len = sizeof(response_buf);
-    bd.cur = 0;
+    int const response_content_length = 1024;
+    int const response_buf_len = strlen(response_header) + response_content_length;
+    char* response_buf = malloc(response_buf_len);
 
-    buf_write(&bd, "HTTP/1.1 200 OK\r\n\r\n", 19);
-    while(buf_write(&bd, "abcdefghijklmnopqrstuvwxyz", 26) > 0);
-
-    int last_read = -1;
-    int last_write = -1;
+    memcpy(response_buf, response_header, strlen(response_header));
+    for(int i = strlen(response_header); i < response_buf_len; ++i) {
+      response_buf[i] = 'a' + (i % 26);
+    }
 
     while(1) {
         int client = accept4(listen_socket, NULL, NULL, SOCK_CLOEXEC);
@@ -93,49 +83,17 @@ static void handle_requests(int listen_socket)
             return;
         }
 
+	// Don't bother reading the request. Just send the response.
 
-        int to_read = 81; // TODO: Fix just for testing.
-        while(to_read > 0) {
-            // TODO: Non blocking, timeout, singal interruptions, etc.
-            int rc = recv(client, request_buf, sizeof(request_buf), 0);
-            if (rc == -1) {
-                if (errno == EINTR) continue;
-
-                log_errno("recv failed");
-                goto loop_end;
-            }
-
-            if (rc == 0) {
-                // peer shutdown.
-                goto loop_end;
-            }
-
-            if (last_read == -1) {
-                last_read = rc;
-            } else {
-                if (last_read != rc) {
-                    log_format("Last time I read %d bytes, but this time I read %d", last_read, rc);
-                }
-            }
-
-            to_read -= rc;
+        bool ok = sendloop(client, response_buf, response_buf_len, 0);
+        if (!ok) {
+            log_format("Didn't send entire response.");
         }
 
-        // TODO: Make sure you send everything.
-        int rc = send(client, response_buf, sizeof(response_buf), 0);
-        if (rc != sizeof(response_buf)) {
-            log_format("Didn't send entire response. rc = %d", rc);
-        }
-
-        if (last_write == -1) {
-            last_write = rc;
-        } else if (last_write != rc) {
-            log_format("Last write %d not equal to this write %d", last_write, rc);
-        }
-
-loop_end:
         close(client);
     }
+
+    free(response_buf);
 }
 
 static void* handle_request_worker_thread(void* arg)
