@@ -28,13 +28,13 @@ static void handle_requests_multi(int listen_socket, int workers);
 //static void handle_request(int client_socket);
 
 static void run_listener(in_port_t);
-static void run_connector(struct in_addr, in_port_t);
+static void run_connector(struct in_addr, in_port_t, uint64_t content_length);
 
 static void log_usage() {
     log_string(
             "Usage:\n"
             "  c-saturate listen <port>\n"
-            "  c-saturate connect <host> <port>");
+            "  c-saturate connect <host> <port> <content-length>");
 }
 
 int main(int argc, char** argv)
@@ -61,13 +61,14 @@ int main(int argc, char** argv)
         }
         run_listener(port_num);
     } else if (strcmp(mode, "connect") == 0) {
-        if (argc < 4) {
-            log_string("Missing host or port argument");
+        if (argc < 5) {
+            log_string("Missing host or port or content-length argument");
             log_usage();
             exit(1);
         }
         char const* host = argv[2];
         char const* port_str = argv[3];
+        char const* content_length_str = argv[4];
         int port_num = atoi(port_str);
         if (port_num <= 0 || port_num > 0xffff) {
             log_format("Invalid port %s", port_str);
@@ -79,7 +80,12 @@ int main(int argc, char** argv)
             log_format("Invalid host address. Should be IPv4 dotted quad (e.g. 192.168.1.23)");
             exit(1);
         }
-        run_connector(addr, port_num);
+        int content_length = atoi(content_length_str);
+        if (content_length < 0) {
+            log_format("Invalid content length argument %s", content_length_str);
+            exit(1);
+        }
+        run_connector(addr, port_num, content_length);
     }
 
     return 0;
@@ -136,8 +142,9 @@ static bool recvloop(int fd, void* data, int length, int flags)
     return true;
 }
 
-static void run_connector(struct in_addr addr, in_port_t port) {
+static void run_connector(struct in_addr addr, in_port_t port, uint64_t content_length) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
+    char* content = NULL;
 
     if (fd == -1) {
         log_errno("socket failed");
@@ -157,12 +164,17 @@ static void run_connector(struct in_addr addr, in_port_t port) {
         return;
     }
 
+    content = (char*)malloc(content_length);
+    if (content == NULL) {
+        log_errno("couldn't malloc buffer for content");
+        goto end;
+    }
+
     // send content length (note: note using network byte order... assuming machines are the same).
-    uint64_t content_length = 20;
     bool ok = sendloop(fd, &content_length, sizeof content_length, 0);
     if (!ok) goto end;
 
-    ok = sendloop(fd, "12345678901234567890", content_length, 0);
+    ok = sendloop(fd, content, content_length, 0);
     if (!ok) goto end;
 
     uint8_t status = 0;
@@ -175,6 +187,7 @@ static void run_connector(struct in_addr addr, in_port_t port) {
 
 end:
     close(fd);
+    free(content);
 }
 
 static void handle_requests(int listen_socket)
