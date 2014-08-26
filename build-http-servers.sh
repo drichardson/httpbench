@@ -18,9 +18,10 @@ build_nginx() {
 EOF
     rm -rf nginx-1.7.4
     tar xvf nginx-1.7.4.tar.gz
-    cd nginx-1.7.4
+    pushd nginx-1.7.4
     env CFLAGS="-march=native -O2" ./configure --without-pcre --without-http_rewrite_module --without-http_gzip_module
     make -j4
+    popd
 }
 
 build_lighttpd() {
@@ -31,9 +32,10 @@ build_lighttpd() {
 EOF
     rm -rf lighttpd-1.4.35
     tar xvf lighttpd-1.4.35.tar.gz
-    cd lighttpd-1.4.35
+    pushd lighttpd-1.4.35
     env CFLAGS="-march=native -O2" ./configure --disable-shared --without-pcre --without-zlib --without-bzip2 --disable-ipv6
     make -j4
+    popd
 }
 
 build_lighttpd
