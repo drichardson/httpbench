@@ -1,11 +1,17 @@
 CFLAGS=-O3 -Wall -Werror -march=native -std=c99 -D_GNU_SOURCE -pthread
 #CFLAGS=-O0 -g -Wall -Werror -march=native -std=c99 -D_GNU_SOURCE -pthread
 
-OBJS=c-ideal-main.o list.o log.o
+SHARED_OBJS=list.o log.o
+TARGETS=c-ideal c-saturate
 
-c-ideal: $(OBJS)
-	$(CC) -pthread -o $@ $(OBJS)
+all: $(TARGETS)
+
+c-saturate: c-saturate-main.o $(SHARED_OBJS)
+	$(CC) -pthread -lrt -o $@ $^
+
+c-ideal: c-ideal-main.o $(SHARED_OBJS)
+	$(CC) -pthread -o $@ $^
 
 clean:
-	$(RM) $(OBJS) c-ideal
+	$(RM) *.o $(TARGETS)
 

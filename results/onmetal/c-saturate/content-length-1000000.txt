@@ -1,0 +1,2 @@
+going to send content length 1000000
+REPORT: 0.001594 seconds, or 5.019995 Gbps

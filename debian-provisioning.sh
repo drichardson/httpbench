@@ -32,10 +32,9 @@ provision() {
     # Get some standard stuff I need
     apt-get --yes update
 
-
     local DIST_ID=$(lsb_release -i | awk -F ' ' '{print $3}') 
     local PACKAGES="vim-nox emacs gcc g++ git subversion sbcl sudo curl make apache2-utils \
-strace sysstat gdb tcpdump"
+strace sysstat gdb tcpdump libclang-dev cscope"
 
     
     case "$DIST_ID" in
