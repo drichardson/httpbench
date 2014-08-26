@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -54,7 +55,7 @@ int main(int argc, char** argv)
             exit(1);
         }
         char const* port_str = argv[2];
-        int port_num = atoi(port_str);
+        int port_num = atol(port_str);
         if (port_num <= 0 || port_num > 0xffff) {
             log_format("Invalid port %s", port_str);
             exit(1);
@@ -69,7 +70,7 @@ int main(int argc, char** argv)
         char const* host = argv[2];
         char const* port_str = argv[3];
         char const* content_length_str = argv[4];
-        int port_num = atoi(port_str);
+        int port_num = atol(port_str);
         if (port_num <= 0 || port_num > 0xffff) {
             log_format("Invalid port %s", port_str);
             exit(1);
@@ -80,7 +81,9 @@ int main(int argc, char** argv)
             log_format("Invalid host address. Should be IPv4 dotted quad (e.g. 192.168.1.23)");
             exit(1);
         }
-        int content_length = atoi(content_length_str);
+        
+        uint64_t content_length = strtoull(content_length_str, NULL, 10);
+        printf("going to send content length %llu\n", (unsigned long long)content_length);
         if (content_length < 0) {
             log_format("Invalid content length argument %s", content_length_str);
             exit(1);
@@ -170,6 +173,10 @@ static void run_connector(struct in_addr addr, in_port_t port, uint64_t content_
         goto end;
     }
 
+    // get start time
+    struct timespec start;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     // send content length (note: note using network byte order... assuming machines are the same).
     bool ok = sendloop(fd, &content_length, sizeof content_length, 0);
     if (!ok) goto end;
@@ -177,13 +184,22 @@ static void run_connector(struct in_addr addr, in_port_t port, uint64_t content_
     ok = sendloop(fd, content, content_length, 0);
     if (!ok) goto end;
 
-    uint8_t status = 0;
+    uint64_t status = 0;
     rc = recvloop(fd, &status, sizeof status, 0);
     if (rc == -1) {
         log_errno("Error receiving status from listener");
         goto end;
     }
     log_format("Got status %d", status);
+
+    // get end time and report
+    struct timespec end;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double const NSEC_PER_SEC = 1000000000.0;
+    double start_f = start.tv_sec + ((double)start.tv_nsec)/NSEC_PER_SEC;
+    double end_f = end.tv_sec + ((double)end.tv_nsec)/NSEC_PER_SEC;
+
+    printf("REPORT: %f seconds, or %f Gbps\n", end_f - start_f, 8*(((double)content_length) / (end_f - start_f))/1000000000.0);
 
 end:
     close(fd);
