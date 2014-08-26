@@ -7,7 +7,7 @@ TARGETS=c-ideal c-saturate
 all: $(TARGETS)
 
 c-saturate: c-saturate-main.o $(SHARED_OBJS)
-	$(CC) -pthread -o $@ $^
+	$(CC) -pthread -lrt -o $@ $^
 
 c-ideal: c-ideal-main.o $(SHARED_OBJS)
 	$(CC) -pthread -o $@ $^
