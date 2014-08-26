@@ -32,7 +32,7 @@ provision() {
     apt-get --yes update
 
     apt-get --yes install vim-nox emacs gcc g++ git subversion sbcl sudo curl make apache2-utils \
-        strace linux-tools sysstat gdb tcpdump libclang-dev
+        strace linux-tools sysstat gdb tcpdump libclang-dev cscope
 
     # would also be nice to install these but wheezy doesn't have them
     # apt-get --yes install blkstat nicstat
