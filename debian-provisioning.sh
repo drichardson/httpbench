@@ -28,17 +28,35 @@ create_user () {
 provision() {
     echo Provisioning host
 
+
     # Get some standard stuff I need
     apt-get --yes update
 
-    apt-get --yes install vim-nox emacs gcc g++ git subversion sbcl sudo curl make apache2-utils \
-        strace linux-tools sysstat gdb tcpdump
+
+    local DIST_ID=$(lsb_release -i | awk -F ' ' '{print $3}') 
+    local PACKAGES="vim-nox emacs gcc g++ git subversion sbcl sudo curl make apache2-utils \
+strace sysstat gdb tcpdump"
+
+    
+    case "$DIST_ID" in
+        Debian)
+            PACKAGES="$PACKAGES linux-tools"
+            ;;
+        Ubuntu)
+            PACKAGES="$PACKAGES linux-tools-generic"
+            ;;
+        *)
+            echo "Unhandled distributor ID $DIST_ID"
+            exit 1
+    esac
+
+    apt-get --yes install $PACKAGES
 
     # would also be nice to install these but wheezy doesn't have them
     # apt-get --yes install blkstat nicstat
 
     # if you want to install ktap, need few more things
-    apt-get --yes install linux-headers-3.2.0-4-amd64
+    apt-get --yes install linux-headers-$(uname -r)
 
     local NONROOT_USER=doug
     create_user $NONROOT_USER
