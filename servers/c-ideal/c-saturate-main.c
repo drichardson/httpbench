@@ -218,8 +218,12 @@ static void handle_requests(int listen_socket)
         log_format("going to receive %ull bytes", content_length);
 
         ok = recvloop(client, content, content_length, 0);
+        if (!ok) {
+            log_string("receive failed on content loop");
+            goto loop_end;
+        }
 
-        int status = 35;
+        uint64_t status = content_length;
         ok = sendloop(client, &status, sizeof(status), 0);
         if (!ok) {
             log_string("Didn't send status.");
