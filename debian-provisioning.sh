@@ -3,6 +3,8 @@
 # This script should be idempotent.
 # To run, do something like this:
 # ssh root@104.130.18.76 'bash -s' < debian-provisioning.sh
+# or, on Amazon EC2 ubunti AMIs use:
+# ssh ubuntu@104.130.18.76 'sudo bash -s' < debian-provisioning.sh
 
 set -e
 
